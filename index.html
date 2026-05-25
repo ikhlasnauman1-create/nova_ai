@@ -1776,7 +1776,7 @@ nav {
 <script>
 /* ── BACKEND CONFIGURATION ── */
 // Change this URL to wherever your Flask app.py is running
-const BACKEND_URL = "";
+const BACKEND_URL = "https://upgraded-happiness-97pgrpw9gqrg3g9x-5000.app.github.dev";
 
 /* ── GOOGLE MAPS API KEY (for high-accuracy geocoding) ── */
 // Get your free API key from: https://console.cloud.google.com/google/maps-apis
@@ -2638,10 +2638,7 @@ function setMicStop(isSpeaking){
   }
 }
 
-// Pre-load voices (some browsers need this)
-if(window.speechSynthesis&&window.speechSynthesis.onvoiceschanged!==undefined){
-  window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();
-}
+// Pre-load voices on startup (handled fully by voiceManager below)
 
 /* ── INIT ── */
 updateHome();
@@ -4274,6 +4271,7 @@ const voiceManager = (function(){
   function _speak(text, voiceId){
     if(!window.speechSynthesis) return;
     speechSynthesis.cancel();
+    if(speechSynthesis.paused) speechSynthesis.resume();
     const id  = voiceId || state.selectedVoice || 'maple';
     const cfg = VOICE_CONFIG[id];
     const utt = new SpeechSynthesisUtterance(_humanize(text));
@@ -4389,6 +4387,11 @@ const voiceManager = (function(){
       // Clean emoji and humanize
       const clean = _humanize(text.replace(/\p{Emoji}/gu,''));
       if(!clean) return;
+      // If voices haven't loaded yet, wait and retry (Chrome async loading fix)
+      if(!speechSynthesis.getVoices().length){
+        setTimeout(() => voiceManager.speak(text), 300);
+        return;
+      }
       // Lazy-resolve voice if needed
       if(!_resolvedVoice && state.selectedVoice){
         _resolvedVoice = _resolve(state.selectedVoice);
@@ -4397,6 +4400,8 @@ const voiceManager = (function(){
       const id  = state.selectedVoice || 'maple';
       const cfg = VOICE_CONFIG[id];
       speechSynthesis.cancel();
+      // Resume in case Chrome left speechSynthesis in a paused state
+      if(speechSynthesis.paused) speechSynthesis.resume();
       const utt = new SpeechSynthesisUtterance(clean);
       utt.rate   = cfg ? cfg.wsaRate  : 0.97;
       utt.pitch  = cfg ? cfg.wsaPitch : 1.02;
@@ -4411,14 +4416,16 @@ const voiceManager = (function(){
 
     /* Called when voices load async on some browsers */
     onVoicesChanged: function(){
-      _resolvedVoice = null; // force re-resolve
+      speechSynthesis.getVoices(); // cache the now-available voices
+      _resolvedVoice = null; // force re-resolve on next speak
     }
   };
 })();
 
-/* Wire up voices-changed event */
+/* Wire up voices-changed event and eagerly trigger voice loading */
 if(window.speechSynthesis){
   speechSynthesis.onvoiceschanged = voiceManager.onVoicesChanged;
+  speechSynthesis.getVoices(); // kick off async voice list population immediately
 }
 
 /* ── Update profile "current voice" label ── */
