@@ -1,15 +1,19 @@
+# app.py — Nova AI Companion (Palstart Hackathon Version)
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
 import os
 
+# ── Config ────────────────────────────────
 API_KEY = os.environ.get("OPENROUTER_API_KEY")
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODEL   = "anthropic/claude-haiku-4-5"
 
+# ── App setup ─────────────────────────────
 app = Flask(__name__)
 CORS(app)
 
+# ── Nova System Prompt ────────────────────
 SYSTEM_PROMPT = """You are Nova, a warm, compassionate AI companion designed specifically for
 senior citizens who may be experiencing loneliness.
 Your personality:
@@ -22,10 +26,12 @@ Your personality:
 - Use small warm emojis (💜 🌸 ☀️ 🌷) sparingly.
 - You are NOT a medical advisor; suggest speaking to a doctor for health concerns."""
 
+# ── Serve frontend ────────────────────────
 @app.route("/")
 def home():
-    return send_from_directory(".", "index.html")
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), 'index.html')
 
+# ── Chat Endpoint ─────────────────────────
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json(silent=True)
@@ -68,7 +74,9 @@ def chat():
         return jsonify({"reply": reply})
     except Exception as e:
         print(f"Error: {e}")
-        return jsonify({"error": "Failed to connect to Nova's brain."}), 500
+        return jsonify({"error": "Failed to connect to Nova's brain. Check API key or connection."}), 500
 
+# ── Run ───────────────────────────────────
 if __name__ == "__main__":
+    print("\n💜 Nova is ready! → http://localhost:5000\n")
     app.run(host="0.0.0.0", port=5000, debug=True)
